@@ -18,6 +18,7 @@ create table Shipments(
 	[Status] nvarchar(20) not null default 'Ожидает отправки',
 )
 
+
 go
 create function fn_GetShipmentsByWarehouse(@wid int)
 returns table
@@ -27,3 +28,49 @@ return (select Shipments.ShipmentID, Shipments.WarehouseID, Warehouses.[Location
 		join Warehouses on Shipments.WarehouseID = Warehouses.WarehouseID
 		where Shipments.WarehouseID = @wid)
 go
+
+
+go
+create function fn_GetShipments()
+returns table
+as
+return (select Shipments.ShipmentID, Shipments.WarehouseID, Warehouses.[Location], Warehouses.ManagerContact, Shipments.OrderID,
+		Shipments.TrackingCode, Shipments.[Weight], Shipments.DispatchDate, Shipments.[Status] from Shipments
+		join Warehouses on Shipments.WarehouseID = Warehouses.WarehouseID)
+go
+
+
+go
+create function fn_GetWarehouse()
+returns table
+as
+return (select Warehouses.WarehouseID, Warehouses.[Location], Warehouses.Capacity, Warehouses.ManagerContact, Warehouses.CreatedDate from Warehouses)
+go
+
+
+go
+create procedure ProblemUpdate
+as
+begin
+	begin transaction
+		begin try
+			update Warehouses set [Location] = (select top 1 [Location] from Warehouses)
+			commit transaction
+		end try
+		begin catch
+			rollback transaction
+			raiserror('Ошибка обновления', 16, 1)
+		end catch
+end
+go
+
+
+exec SalesDB.dbo.pr_AddWarehouse 'Молочное', 2
+exec Salesdb.dbo.pr_AddWarehouse 'Кефир', 2
+
+select * from fn_GetShipments()
+select * from fn_GetWarehouse()
+
+exec ProblemUpdate
+exec SalesDB.dbo.pr_AddWarehouse '1', 1
+
